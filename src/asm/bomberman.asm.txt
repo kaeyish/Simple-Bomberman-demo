@@ -1,0 +1,339 @@
+.data
+6
+0
+75
+0x100
+0x140
+0x200
+1, 1 	//bombaman
+0, 0 // Pocetak ivica
+0, 1
+0, 2
+0, 3
+0, 4
+0, 5
+0, 6
+0, 7
+1, 7
+2, 7
+3, 7
+4, 7
+5, 7
+6, 7
+7, 7
+7, 6
+7, 5
+7, 4
+7, 3
+7, 2
+7, 1
+7, 0
+6, 0
+5, 0
+4, 0
+3, 0
+2, 0
+1, 0 // kraj ivica
+1, 2
+3, 2
+5, 2
+1, 4
+3, 4
+5, 4
+1, 6
+3, 6
+5, 6
+-1, -1
+3, 1
+4, 1
+4, 2
+4, 3
+6, 4
+6, 5
+6, 6
+2, 6
+4, 6
+-1, -1
+
+/*
+	Ekvivalentan C kod (viši nivo):
+*/
+.text
+/*
+	Spisak registara:
+	R0 - tmp register
+	R1 - tmp chunk x
+	R2 - tmp chunk y
+	R3 - color
+	R4 - niz sa bmbmanom i zidovima 
+	R5 - p_pb_dec
+	R6 - p_frame_sync
+	R7 - p_rgb_matrix
+*/
+
+begin:
+	;; Setup pointers and color.
+	inc R0, R0                  ;; addr = 1
+	inc R0, R0                  ;; addr = 2
+	inc R0, R0                  ;; addr = 3
+	ld R7, R0                   ;; R7 <- p_rgb_matrix
+	inc R0, R0                  ;; addr = 4
+	ld R6, R0                   ;; R6 <- p_frame_sync
+	inc R0, R0                  ;; addr = 5
+	ld R5, R0                   ;; R5 <- p_pb_dec
+
+
+frame_sync_rising_edge:
+frame_sync_wait_0:
+	ld R0, R6                   ;; R0 <- p_frame_sync
+	jmpnz frame_sync_wait_0
+frame_sync_wait_1:
+	ld R0, R6                   ;; R0 <- p_frame_sync
+	jmpz frame_sync_wait_1
+	
+	sub R3, R3, R3
+	inc R3, R3                  ;; color = RED
+	inc R3, R3			;; = GREEN
+
+draw_wall_begin:
+	;; color is green at this point.
+	sub R0, R0, R0              ;; addr = 0
+	ld  R4, R0		    ;; R4 <- zidic
+	inc R4, R4
+	inc R4, R4
+draw_wall_loop:
+	//citamo x
+	ld R1, R4
+	jmps draw_wall_end
+	
+	inc R4, R4
+	
+	//citamo y
+	ld R2, R4                   ;; R2 <- zidic->y
+	
+	//pripremamo koordinate za upis na plocicu
+	;; p_rgb_matrix + (y << 3) + x
+	shl R2, R2
+	shl R2, R2
+	shl R2, R2
+	add R2, R1, R2              ;; (y << 3) + x
+	add R2, R7, R2              ;; p_rgb_matrix + 
+	
+	// upisujemo na plocicu
+	st R3, R2                   ;; R3 -> p_rgb_matrix[y][x]
+	
+	inc R4, R4
+	jmp draw_wall_loop
+
+draw_wall_end:
+	
+	inc R3, R3	;; yellow
+	shl R3, R3	;; light blue
+	inc R3, R3	;; white
+
+	inc R4, R4	;; y=-1
+	inc R4, R4	;; breakbale.x
+	
+draw_breakable_loop:
+	//citamo x
+	ld R1, R4
+	jmps break_end
+		
+	inc R4, R4
+	
+	//citamo y
+	ld R2, R4                   ;; R2 <- zidic->y	
+	//jmpz erased	
+	
+	//pripremamo koordinate za upis na plocicu
+	;; p_rgb_matrix + (y << 3) + x
+	shl R2, R2
+	shl R2, R2
+	shl R2, R2
+	add R2, R1, R2              ;; (y << 3) + x
+	add R2, R7, R2              ;; p_rgb_matrix + 
+	
+	// upisujemo na plocicu
+	st R3, R2                   ;; R3 -> p_rgb_matrix[y][x]
+	
+	inc R4, R4
+	jmp draw_breakable_loop
+
+/*erased:
+
+	inc R3, R3
+	//pripremamo koordinate za upis na plocicu
+	;; p_rgb_matrix + (y << 3) + x
+	shl R2, R2
+	shl R2, R2
+	shl R2, R2
+	add R2, R1, R2              ;; (y << 3) + x
+	add R2, R7, R2              ;; p_rgb_matrix + 
+	
+	// upisujemo na plocicu
+	st R3, R2                   ;; R3 -> p_rgb_matrix[y][x]
+	
+	inc R4, R4
+	dec R3, R3
+	jmp draw_breakable_loop*/
+
+
+break_end:
+	;; drawing bmb_man 	
+	sub R0, R0, R0              ;; addr = 0
+	ld  R4, R0		    ;; R4 <- zidic
+	ld R1, R4			
+	inc R4, R4
+	ld R2, R4
+
+	shl R2, R2
+	shl R2, R2
+	shl R2, R2
+	add R2, R1, R2              ;; (y << 3) + x
+	add R2, R7, R2              ;; p_rgb_matrix + (y << 3) + x 
+	
+	;; 1 - RED, 2 - GREEN, 3 - YELLOW, 4 - BLUE, 5 - LJUBICASTA, 6 - LIGHT BLUE, 7 - WHITE, 0 - BLK
+
+	sub R3, R3, R3		;; blk
+	inc R3, R3		;; red
+	shl R3, R3		;; green
+	shl R3, R3		;; blue
+	inc R3, R3		;; purple
+	st R3, R2                   ;; R3 -> p_rgb_matrix[y][x]
+	
+	
+		
+
+count_frames_begin:
+	sub R0, R0, R0              ;; addr = 0
+	inc R0, R0
+	ld R1, R0                   ;; R1 <- frame_cnt
+	inc R0, R0
+	ld R2, R0                   ;; R2 <- frames_per_heartbeat
+	dec R0, R0
+	inc R1, R1                  ;; frame_cnt++;
+	sub R2, R2, R1              ;; frame_cnt == frames_per_heartbeat
+	jmpz count_frames_heartbeat  ;; Jump if equal.
+	st R1, R0                   ;; R1 -> frame_cnt
+	jmp frame_sync_rising_edge
+count_frames_heartbeat:
+	sub R1, R1, R1
+	st R1, R0                  	;; R1 i.e. 0 -> frame_cnt
+					;; Move snake, eat food...
+count_frames_end:
+	
+	sub R0, R0, R0              ;; addr = 0
+	ld  R4, R0		    ;; R4 <- niz
+
+move_bomberman_begin:		
+	
+	ld R1, R4                   ;; R1 <- bomberman->x
+	ld R0, R5                   ;; R0 <- p_pb_dec->x
+	add R1, R1, R0              ;; Moving x by controls.
+	st R1, R4                   ;; R0 -> bomberman->x
+	inc R4, R4                  ;; Go to bomberman->y.
+	inc R5, R5                  ;; Move to p_pb_dec->y	
+	ld R2, R4                   ;; R2 <- bomberman->y
+	ld R0, R5                   ;; R0 <- p_pb_dec->y
+	dec R5, R5                  ;; Return to p_pb_dec->x
+	add R2, R2, R0              ;; Moving y by controls.
+	st R2, R4                   ;; R0 -> bomberman->y
+	sub R6, R6, R6	
+
+	sub R4, R4, R4
+	ld R4, R4
+	inc R4, R4
+	
+move_bomberman_loop:
+	
+	inc R4, R4
+	
+	ld R3, R4 		;; R3 <-zid.x
+	jmps check_other
+	inc R4, R4	
+	ld R6, R4		;; R6 <- zid.y
+
+	sub R0, R0, R0
+	ld R0, R0
+	ld R1, R0
+	inc R0, R0
+	ld R2, R0
+	
+	sub R0, R1, R3
+	jmpnz move_bomberman_loop
+
+		
+
+	sub R0, R2, R6
+	jmpz restore_pos
+	jmp move_bomberman_loop
+
+
+
+check_other:
+	
+	inc R4, R4
+	
+check_breakable:
+	inc R4, R4
+	
+	ld R3, R4 		;; R3 <-zid.x
+	jmps move_bomberman_end	;; restore_pos (?)
+	inc R4, R4	
+	ld R6, R4		;; R6 <- zid.y
+
+	sub R0, R0, R0
+	ld R0, R0
+	ld R1, R0
+	inc R0, R0
+	ld R2, R0
+	
+	sub R0, R1, R3
+	jmpnz check_breakable
+
+		
+
+	sub R0, R2, R6
+	jmpz erase_breakable
+	jmp check_breakable
+
+erase_breakable:
+/*	sub R3, R3, R3
+	sub R6, R6, R6*/
+
+restore_pos:
+
+	sub R0, R0, R0              ;; addr = 0
+	ld  R4, R0		    ;; R4 <- niz
+	
+	ld R1, R4                   ;; R1 <- bomberman->x
+	ld R0, R5                   ;; R0 <- p_pb_dec->x
+	sub R1, R1, R0              ;; Moving x by controls.
+	st R1, R4                   ;; R0 -> bomberman->x
+	inc R4, R4                  ;; Go to bomberman->y.
+	inc R5, R5                  ;; Move to p_pb_dec->y	
+	ld R2, R4                   ;; R2 <- bomberman->y
+	ld R0, R5                   ;; R0 <- p_pb_dec->y
+	dec R5, R5                  ;; Return to p_pb_dec->x
+	sub R2, R2, R0              ;; Moving y by controls.
+	st R2, R4                   ;; R0 -> bomberman->y
+
+	
+
+
+
+move_bomberman_end:
+	;; Setup pointers and color.
+	sub R0, R0, R0
+	inc R0, R0                  ;; addr = 1
+	inc R0, R0                  ;; addr = 2
+	inc R0, R0                  ;; addr = 3
+	ld R7, R0                   ;; R7 <- p_rgb_matrix
+	inc R0, R0                  ;; addr = 4
+	ld R6, R0                   ;; R6 <- p_frame_sync
+	inc R0, R0                  ;; addr = 5
+	ld R5, R0                   ;; R5 <- p_pb_dec
+
+	jmp frame_sync_rising_edge
+
+
